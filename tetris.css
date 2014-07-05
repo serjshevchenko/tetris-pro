@@ -1,0 +1,20 @@
+* {margin:0px; padding:0px;}
+
+.tetris-pro                 {position:relative;}
+
+
+.tetris-pro .field          {position:absolute; top:10px; left:375px; padding:1px; background:#f00;}
+.tetris-pro .scoreboard     {}
+.tetris-pro .panel          {position:absolute; right:10%; top:0px; width:300px; height:300px; border:1px solid #0f0;}
+
+
+
+.tetris-pro .field .row             {height:30px;}
+.tetris-pro .field .row .cell       {float:left; width:30px; height:30px; margin:1px 0px 0px 1px; background:#fff;}
+.tetris-pro .field .row.r-1 .cell   {margin-top:0px;}
+.tetris-pro .field .row .cell.c-1   {margin-left:0px;}
+
+.tetris-pro .panel .btn             {position:absolute; width:120px; height:25px; line-height:25px; text-align:center; background:#aaa; box-shadow:1px 1px 2px #444;}
+.tetris-pro .panel .btn.start       {top:0px;}
+.tetris-pro .panel .btn.pause       {top:30px;}
+.tetris-pro .panel .btn.resert      {top:60px;}
