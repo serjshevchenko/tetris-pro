@@ -1,4 +1,4 @@
-* {margin:0px; padding:0px;}
+* 							{margin:0px; padding:0px;}
 
 .tetris-pro                 {position:relative;}
 
@@ -9,9 +9,9 @@
 
 
 
-.tetris-pro .field .row             {height:30px;}
-.tetris-pro .field .row .cell       {float:left; width:30px; height:30px; margin:1px 0px 0px 1px; background:#fff;}
-.tetris-pro .field .row.r-1 .cell   {margin-top:0px;}
+.tetris-pro .field .row             {height:30px; margin-top:1px;}
+.tetris-pro .field .row .cell       {float:left; width:30px; height:30px; margin:0px 0px 0px 1px; background:#fff;}
+.tetris-pro .field .row.r-1   		{margin-top:0px;}
 .tetris-pro .field .row .cell.c-1   {margin-left:0px;}
 
 .tetris-pro .panel .btn             {position:absolute; width:120px; height:25px; line-height:25px; text-align:center; background:#aaa; box-shadow:1px 1px 2px #444;}
