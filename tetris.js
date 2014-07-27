@@ -11,12 +11,12 @@
 
 
 var defOptions = {
-		speed : 1000, //in msec
+		speed : 200, 		//in msec
+		color : '#fff' 		// free cell
 	};
 
 
 var Tetris = function (options) {
-        //~ parentObj.apply(this, arguments);
         
         if (options.constructor != Object) {
 			throw new TypeError('options must be Object type');
@@ -27,17 +27,18 @@ var Tetris = function (options) {
 		}
 		//TODO accept/init options
         //~ this.init(options);
-        this.prepareLayout();
-        
-		this.initModels();
+        this.prepareLayout().initModels().addListeners();
 		
 		//IT'S SHOW'S TIME
+		this.finish = false;
 		this.run();
     };    
     
 Tetris.prototype = {
                 numVer : 20,
                 numHor : 15,
+                
+                finish : true,
                 
                 models : [],
                 
@@ -62,8 +63,19 @@ Tetris.prototype = {
                                 var row = document.createElement('DIV');
                                 row.className = 'row r-' + (i+1);
                                 for (var j = 0; j < this.numHor; j++) {
+                                        // TODO init cell method, if needed
                                         var cell = document.createElement('DIV');
                                         cell.className = 'cell c-'+(j+1);
+                                        cell.__busy = false;
+										cell.__isFree = function () {											
+											return !this.__busy;
+										};
+										cell.__reserve = function (cell) {
+											this.__busy = true;
+										};
+										cell.__release = function () {
+											this.__busy = false;				
+										};
                                         row.appendChild(cell);
                                 }
                                 this.field.appendChild(row);
@@ -87,28 +99,36 @@ Tetris.prototype = {
                         this.wrapper.appendChild(this.panel);
                         
                         this.options.element.appendChild(this.wrapper);
-                        
+
+						return this;
                 },
                 
                 initModels : function () {
-						this.models.push(new Stick(this));
-						this.models.push(new Square(this));
-						this.models.push(new GLeft(this));
-						this.models.push(new GRight(this));
-						this.models.push(new ZedLeft(this));
-						this.models.push(new ZedRight(this));
-						this.models.push(new TetDown(this));
-						this.models.push(new TetUp(this));
+						this.models = {
+										'Stick'   : Stick, 
+										'Square'  : Square, 
+										'GLeft'   : GLeft, 
+										'GRight'  : GRight,
+										'ZedLeft' : ZedLeft, 
+										'ZedRigh' : ZedRight, 
+										'TetDown' : TetDown, 
+										'TetUp'   : TetUp
+									  };
+									  
+						return this;
 				},
 				
 				run : function () {
-					var model = this.getRandModel();
-					model.flush();
-					model.go();
+					if (!this.finish) {
+						var model = this.getRandModel();
+						model.go();
+					}
+					return this;
 				},
                 
                 getRandModel : function () {
-					var models = this.models;
+					var models = ['Stick', 'Square', 'GLeft', 'GRight',
+									'TetDown', 'TetUp', 'ZedLeft', 'ZedRigh'];
 					var len = models.length;
 					var idx = Math.floor(Math.random()*(len-1));
 					var md1 = models[idx];
@@ -117,20 +137,29 @@ Tetris.prototype = {
 					idx = Math.floor(Math.random()*(len-1));
 					var md2 = models[idx];
 					idx = Math.round(Math.random()) + 1;
-					return eval('md'+idx);
+					return new this.models[ eval('md'+idx) ] (this);
 				},
                 
                 addListeners : function () {
-                        var selt = this;
+                        var self = this;
 
-                        this.btnStart.onclick = function (event) {
-                        };
+                        //~ this.btnStart.onclick = function (event) {
+                        //~ };
+                        //~ 
+                        //~ this.btnPause.onclick = function (event) {
+                        //~ };
+//~ 
+                        //~ this.btnStop.onclick = function (event) {
+                        //~ };
                         
-                        this.btnPause.onclick = function (event) {
-                        };
+                        
+                        EventManager.on('model.stop', function () {
+							setTimeout(function () {
+								self.run();
+							}, self.getOption('speed'));
+						});
 
-                        this.btnStop.onclick = function (event) {
-                        };
+						return this;
                 },
                 
                 getCell : function (row, cell) {
@@ -167,9 +196,11 @@ var Model = function (foreman) {
 				var cell = this.foreman.getCell(y, x);
 				if (cell) {
 					if (mode === false) {
-						cell.style.backgroundColor = '#fff';
+						cell.style.backgroundColor = this.foreman.getOption('color');
+						cell.__release();
 					} else {
 						cell.style.backgroundColor = this.color;
+						cell.__reserve();
 					}
 				}
 			}
@@ -178,9 +209,13 @@ var Model = function (foreman) {
 		
 		this.go = function () {
 			var self = this;
-			setTimeout(function () {
-					self.move();
-			}, this.foreman.getOption('speed'));
+			if (this.isFreeSpace()) {
+				this.flush();
+				setTimeout(function () {
+						self.move();
+				}, this.foreman.getOption('speed'));
+			}
+			return this;
 		};
 		
 		this.move = function () {
@@ -188,12 +223,14 @@ var Model = function (foreman) {
 			this.flush(false);
 			for (var len = this.position.length, i = 0; i < len; i++) {
 				this.position[i].y += 1;
-				if (this.foreman.numVer == this.position[i].y) {
+				var cell = this.foreman.getCell(this.position[i].y + 1, this.position[i].x);
+				if (!cell || !cell.__isFree()) {
 					end = true;
 				}
 			}
 			this.flush();
 			if (end) {
+				EventManager.fire('model.stop');
 				return;
 			}
 			var self = this;
@@ -201,6 +238,17 @@ var Model = function (foreman) {
 				self.move();
 			}, this.foreman.getOption('speed')); // TODO get interval from options			
 		};
+		
+		this.isFreeSpace = function () {
+			for (var len = this.position.length, i = 0; i < len; i++) {
+				var cell = this.foreman.getCell(this.position[i].y, this.position[i].x);
+				if (!cell || !cell.__isFree()) {
+					return false;
+				}
+			}
+			return true;
+		};
+		
 
     };
     
@@ -262,7 +310,39 @@ ZedRight.prototype.superclass = Model;
 TetUp.prototype.superclass = Model;
 TetDown.prototype.superclass = Model;
 
-var EventsLst = function () {
-    
-    };
-        
+var EventManager = {
+		events : {
+			//~ 'model.prestart' : [],
+			//~ 'model.start' : [],
+			//~ 'model.move' : [],
+			//~ 'finish' : [],
+			'model.stop' : []
+		},
+		
+		on : function (event, callback) {
+			if (!this.events[event] || callback.constructor != Function) {
+				throw new Error('Arguments error');
+			}
+			var listeners = this.events[event];
+			for (var i = 0, len = listeners.length; i < len; i++) {
+				if (listeners[i] == callback) {
+					break;
+				}
+			}
+			if (i == len) {
+				this.events[event].push(callback);
+			}
+			return this;
+		},
+		
+		fire : function (event, data) {
+			if (!this.events[event]) {
+				throw new Error('Arguments error');
+			}
+			var listeners = this.events[event];
+			for (var i = 0, len = listeners.length; i < len; i++) {
+				listeners[i].call(this, data);
+			}
+			return this;
+		}
+    };       
