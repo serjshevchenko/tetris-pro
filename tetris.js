@@ -11,7 +11,7 @@
 
 
 var defOptions = {
-		speed : 150, 		//in msec
+		speed : 250, 		//in msec
 		color : '#fff' 		// free cell
 	};
 
@@ -176,6 +176,10 @@ Tetris.prototype = {
 							}, self.getOption('speed'));
 						});
 						
+						EventManager.on('finish', function () {
+							alert('Game over!');
+						});
+						
 						return this;
                 },
                 
@@ -223,88 +227,50 @@ var Model = function (field) {
 		this.field = field;
 		
 		this.draw = function () {
-			for (var i = 0; i < this.oldCells.length; i++) {
-				this.oldCells[i].release().changeColor(this.field.options.color);
-			}
 			for (var i = 0; i < this.newCells.length; i++) {
+				this.oldCells[i] && this.oldCells[i].release().changeColor(this.field.options.color);
 				this.newCells[i].reserve(this).changeColor(this.color);
 			}
+		};
+
+		this.isFreeSpace = function () {
+			for (var i = 0; i < this.position.length; i++) {
+				var cell = this.field.getCell(this.position[i].y, this.position[i].x);
+				if (!cell || (!cell.isFree() && cell.getModel() !== this)) {
+					break;
+				}
+			}
+			return i == this.position.length;
 		};
 		
 		this.flush = function () {
 			this.oldCells = this.newCells;
-			this.newCells = [];
-			for (var i = 0; i < this.position.length; i++) {
-				var cell = this.field.getCell(++this.position[i].y, this.position[i].x);
-				if (cell && (cell.isFree() || cell.getModel() === this)) {
-					this.newCells.push(cell);
-				} else {
-					break;
+			if (this.isFreeSpace()) {
+				this.newCells = [];
+				for (var i = 0; i < this.position.length; i++) {
+					this.newCells.push( this.field.getCell(this.position[i].y++, this.position[i].x) );
+					var idx = this.oldCells.indexOf(this.newCells[i]);
+					idx > -1 && this.oldCells.splice(idx, 1);
 				}
-			}
-			
-			if (i == this.position.length) {
 				this.draw();
 				var self = this;
 				setTimeout(function () {
 					self.flush();
-				}, this.field.getOption('speed'));			
+				}, this.field.getOption('speed'));
+			} else {
+				if (!this.oldCells) {
+					EventManager.fire('finish');
+				} else {
+					EventManager.fire('model.stop');
+				}
+
 			}
 		};
 		
-		this.initCells = function () {
-			//~ for (var i = 0; i < this.position.length; i++) {
-				//~ var 
-					//~ x = this.position[i].x,
-					//~ y = this.position[i].y
-				//~ ;
-				//~ var cell = this.field.getCell(x, y);
-				//~ this.cells[x+':'+y] = cell;
-				//~ cell.model = this;
-			//~ }
-		};
-		
 		this.go = function () {
-			var self = this;
-			//~ if (this.isFreeSpace()) {
 			this.flush();
-				//~ setTimeout(function () {
-						//~ self.move();
-				//~ }, this.field.getOption('speed'));
-			//~ }
 			return this;
 		};
-		
-		//~ this.move = function () {
-			//~ var end = false;
-			//~ this.flush(false);
-			//~ for (var len = this.position.length, i = 0; i < len; i++) {
-				//~ this.position[i].y += 1;
-				//~ var cell = this.field.getCell(this.position[i].y + 1, this.position[i].x);
-				//~ if (!cell || !cell.isFree()) {
-					//~ end = true;
-				//~ }
-			//~ }
-			//~ this.flush();
-			//~ if (end) {
-				//~ EventManager.fire('model.stop');
-				//~ return;
-			//~ }
-			//~ var self = this;
-			//~ setTimeout(function () {
-				//~ self.move();
-			//~ }, this.field.getOption('speed')); // TODO get interval from options			
-		//~ };
-		
-		//~ this.isFreeSpace = function () {
-			//~ for (var len = this.position.length, i = 0; i < len; i++) {
-				//~ var cell = this.field.getCell(this.position[i].y, this.position[i].x);
-				//~ if (!cell || !cell.isFree()) {
-					//~ return false;
-				//~ }
-			//~ }
-			//~ return true;
-		//~ };
 		
 		this.onLeft = function () {
 			console.log('left');
@@ -321,64 +287,55 @@ var Model = function (field) {
 		this.onUp = function () {
 			console.log('up');
 		};
-
-    };
+};
     
     
 var Stick = function () {
 		Stick.prototype.superclass.apply(this, arguments);
 		this.color = '#0f0';
 		this.position = [{x:8,y:4}, {x:8,y:3}, {x:8,y:2}, {x:8,y:1}];
-		this.initCells();
 	};
 
 var Square = function () {
 		Square.prototype.superclass.apply(this, arguments);
 		this.color = '#0a0afe';
 		this.position = [{x:9,y:2}, {x:9,y:1}, {x:8,y:2}, {x:8,y:1}];
-		this.initCells();
 	};
 	
 var ZedLeft = function () {
 		ZedLeft.prototype.superclass.apply(this, arguments);
 		this.color = '#0003fe';
 		this.position = [{x:9,y:2}, {x:8,y:2}, {x:8,y:1}, {x:7,y:1}];
-		this.initCells();
 	};
    
 var ZedRight = function () {
 		ZedRight.prototype.superclass.apply(this, arguments);
 		this.color = '#01a3ff';
 		this.position = [{x:7,y:2}, {x:8,y:2}, {x:8,y:1}, {x:9,y:1}];
-		this.initCells();
 	};
 	
 var TetUp = function () {
 		TetUp.prototype.superclass.apply(this, arguments);
 		this.color = '#af48da';
 		this.position = [{x:7,y:2}, {x:9,y:2}, {x:8,y:2}, {x:8,y:1}];
-		this.initCells();
 	};
 	
 var TetDown = function () {
 		TetDown.prototype.superclass.apply(this, arguments);
 		this.color = '#ef4e1f';
 		this.position = [{x:7,y:1}, {x:9,y:1}, {x:8,y:2}, {x:8,y:1}];
-		this.initCells();
 	};
 	
 var GRight = function () {
 		GRight.prototype.superclass.apply(this, arguments);
 		this.color = '#aadd1f';
 		this.position = [{x:9,y:3}, {x:8,y:3}, {x:8,y:2}, {x:8,y:1}];
-		this.initCells();
 	};
 
 var GLeft = function () {
 		GLeft.prototype.superclass.apply(this, arguments);
 		this.color = '#521e98';
 		this.position = [{x:7,y:3}, {x:8,y:3}, {x:8,y:2}, {x:8,y:1}];
-		this.initCells();
 	};
 
 Stick.prototype.superclass = Model;
@@ -395,6 +352,7 @@ var EventManager = {
 			//~ 'model.prestart' : [],
 			//~ 'model.start' : [],
 			//~ 'model.move' : [],
+			'finish' : [],
 			'model.stop' : []
 		},
 		
