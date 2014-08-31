@@ -211,57 +211,57 @@ Tetris.prototype = {
 				}
 }; 
     
-var Model = function (foreman) {
+var Model = function (field) {
 		this.rotationRight = function () {};
 		this.rotationLeft = function () {};
 		this.position = [];
-		this.cells = {};
-		if (!foreman) {
-			throw new Error('Argument foreman is empty');
+		this.oldCells = [];
+		this.newCells = [];
+		if (!field) {
+			throw new Error('Argument field is empty');
 		}
-		this.foreman = foreman;
+		this.field = field;
 		
-		this.flush = function (arr) { // if mode == false it's means to hide model
-			arr = arr || [];
-			
-			for (var i = 0; i < arr.length; i++) {
-				arr[i].changeColor('white').release();
+		this.draw = function () {
+			for (var i = 0; i < this.oldCells.length; i++) {
+				this.oldCells[i].release().changeColor(this.field.options.color);
 			}
-			arr = [];
-			for (i = 0; i < this.position.length; i++) {
-				var 
-					x = this.position[i].x,
-					y = this.position[i].y,
-					cell = this.foreman.getCell(y, x)
-				;
+			for (var i = 0; i < this.newCells.length; i++) {
+				this.newCells[i].reserve(this).changeColor(this.color);
+			}
+		};
+		
+		this.flush = function () {
+			this.oldCells = this.newCells;
+			this.newCells = [];
+			for (var i = 0; i < this.position.length; i++) {
+				var cell = this.field.getCell(++this.position[i].y, this.position[i].x);
 				if (cell && (cell.isFree() || cell.getModel() === this)) {
-					arr.push(cell);
-					this.position[i].y += 1;
+					this.newCells.push(cell);
 				} else {
 					break;
 				}
 			}
+			
 			if (i == this.position.length) {
-				for (i = 0; i < arr.length; i++) {
-					arr[i].reserve(this).changeColor(this.color);
-				}
+				this.draw();
 				var self = this;
 				setTimeout(function () {
-					self.flush(arr);
-				}, this.foreman.getOption('speed'));
+					self.flush();
+				}, this.field.getOption('speed'));			
 			}
 		};
 		
 		this.initCells = function () {
-			for (var i = 0; i < this.position.length; i++) {
-				var 
-					x = this.position[i].x,
-					y = this.position[i].y
-				;
-				var cell = this.foreman.getCell(x, y);
-				this.cells[x+':'+y] = cell;
-				cell.model = this;
-			}
+			//~ for (var i = 0; i < this.position.length; i++) {
+				//~ var 
+					//~ x = this.position[i].x,
+					//~ y = this.position[i].y
+				//~ ;
+				//~ var cell = this.field.getCell(x, y);
+				//~ this.cells[x+':'+y] = cell;
+				//~ cell.model = this;
+			//~ }
 		};
 		
 		this.go = function () {
@@ -270,7 +270,7 @@ var Model = function (foreman) {
 			this.flush();
 				//~ setTimeout(function () {
 						//~ self.move();
-				//~ }, this.foreman.getOption('speed'));
+				//~ }, this.field.getOption('speed'));
 			//~ }
 			return this;
 		};
@@ -280,7 +280,7 @@ var Model = function (foreman) {
 			//~ this.flush(false);
 			//~ for (var len = this.position.length, i = 0; i < len; i++) {
 				//~ this.position[i].y += 1;
-				//~ var cell = this.foreman.getCell(this.position[i].y + 1, this.position[i].x);
+				//~ var cell = this.field.getCell(this.position[i].y + 1, this.position[i].x);
 				//~ if (!cell || !cell.isFree()) {
 					//~ end = true;
 				//~ }
@@ -293,12 +293,12 @@ var Model = function (foreman) {
 			//~ var self = this;
 			//~ setTimeout(function () {
 				//~ self.move();
-			//~ }, this.foreman.getOption('speed')); // TODO get interval from options			
+			//~ }, this.field.getOption('speed')); // TODO get interval from options			
 		//~ };
 		
 		//~ this.isFreeSpace = function () {
 			//~ for (var len = this.position.length, i = 0; i < len; i++) {
-				//~ var cell = this.foreman.getCell(this.position[i].y, this.position[i].x);
+				//~ var cell = this.field.getCell(this.position[i].y, this.position[i].x);
 				//~ if (!cell || !cell.isFree()) {
 					//~ return false;
 				//~ }
