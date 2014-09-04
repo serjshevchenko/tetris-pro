@@ -160,6 +160,7 @@ Tetris.prototype = {
                         //~ };
                         document.onkeypress = function (e) {
 							//~ console.log(e.keyCode);
+							if (!self.cModel) return false; 
 							setTimeout(function () {
 								var dict = {
 										37 : 'onLeft',
@@ -179,6 +180,7 @@ Tetris.prototype = {
 						});
 						
 						EventManager.on('finish', function () {
+							self.cModel = null;
 							alert('Game over!');
 						});
 						
@@ -222,17 +224,33 @@ var Model = function (field) {
 		this.rotationRight = function () {};
 		this.rotationLeft = function () {};
 		this.position = [];
-		this.oldCells = [];
-		this.newCells = [];
+		this.prevPosition = [];
+		this.firstStep = true;
+		//~ this.oldCells = [];
+		//~ this.newCells = [];
 		if (!field) {
 			throw new Error('Argument field is empty');
 		}
 		this.field = field;
 		
+		this.copyPosition = function (x, y) {
+			x = x || 0;
+			y = y || 0;
+			var clone = [];
+			for (var i in this.position) {
+				clone.push( { 'x' : this.position[i].x + x, 'y' : this.position[i].y + y } );
+			}
+			return clone;
+		};
+		
 		this.draw = function () {
-			for (var i = 0; i < this.newCells.length; i++) {
-				this.oldCells[i] && this.oldCells[i].release().changeColor(this.field.options.color);
-				this.newCells[i].reserve(this).changeColor(this.color);
+			for (var i = 0; i < this.prevPosition.length; i++) {
+				var cell = this.field.getCell(	this.prevPosition[i].y, this.prevPosition[i].x);
+				cell.release().changeColor(this.field.options.color);
+			}
+			for (var i = 0; i < this.position.length; i++) {
+				var cell = this.field.getCell(	this.position[i].y, this.position[i].x);
+				cell.reserve(this).changeColor(this.color);
 			}
 		};
 
@@ -247,51 +265,53 @@ var Model = function (field) {
 			return i == position.length;
 		};
 		
-		this.flush = function () {
-			this.oldCells = this.newCells.slice(0);
+		this.flush = function () {			
+			this.prevPosition = this.copyPosition();
+			this.position = this.copyPosition(0, 1);
 			if (this.isFreeSpace()) {
-				this.newCells = [];
-				for (var i = 0; i < this.position.length; i++) {
-					this.newCells.push( this.field.getCell(this.position[i].y++, this.position[i].x) );
-					var idx = this.oldCells.indexOf(this.newCells[i]);
-					idx > -1 && this.oldCells.splice(idx, 1);
-				}
-				this.draw();
+				this.draw();				
 				var self = this;
 				this.__timer = setTimeout(function () {
+					//~ self.firstStep = false;
 					self.flush();
 				}, this.field.getOption('speed'));
 			} else {
-				if (!this.oldCells) {
-					EventManager.fire('finish');
-				} else {
+				//~ if (this.firstStep) {
+					//~ EventManager.fire('finish');
+				//~ } else {
 					EventManager.fire('model.stop');
-				}
+				//~ }
 			}
 		};
 
 		this.go = function () {
-			this.flush();
+			if (this.isFreeSpace()) {
+				this.draw();
+				var self = this;
+				this.__timer = setTimeout(function () {					
+					self.flush();
+				}, this.field.getOption('speed'));
+			} else {
+				EventManager.fire('finish');
+			}
 			return this;
 		};
 		
 		this.onLeft = function () {
-			var position = [];
-			for (var i in this.position) {
-				position.push( { 'x' : this.position[i].x - 1, 'y' : this.position[i].y	} );
-			}
+			var position = this.copyPosition(-1);
 			if (this.isFreeSpace(position)) {
+				this.prevPosition = this.position;
 				this.position = position; // TODO check dangerous place
+				this.draw();
 			}
 		};
 		
 		this.onRight = function () {
-			var position = [];
-			for (var i in this.position) {
-				position.push( { 'x' : this.position[i].x + 1, 'y' : this.position[i].y	} );
-			}
+			var position = this.copyPosition(1);
 			if (this.isFreeSpace(position)) {
+				this.prevPosition = this.position;
 				this.position = position; // TODO check dangerous place
+				this.draw();
 			}
 		};
 		
