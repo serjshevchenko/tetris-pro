@@ -1,7 +1,7 @@
 /**
+ * 
  * Author: Serj Shevchenko
  * E-mail: serj.shevchenko@gmail.com
- * 
  * 
  **/
 
@@ -11,7 +11,7 @@
 
 
 var defOptions = {
-		speed : 250, 		//in msec
+		speed : 200, 		//in msec
 		color : '#fff' 		// free cell
 	};
 
@@ -158,19 +158,21 @@ Tetris.prototype = {
 //~ 
                         //~ this.btnStop.onclick = function (event) {
                         //~ };
-                        window.onkeydown = function (e) {
+                        document.onkeypress = function (e) {
 							//~ console.log(e.keyCode);
-							var dict = {
-									37 : 'Left',
-									39 : 'Right',
-									40 : 'Down',
-									38 : 'Up'
-							};
-							var action = 'on'+dict[e.keyCode];
-							self.cModel[action] && self.cModel[action]();
+							setTimeout(function () {
+								var dict = {
+										37 : 'onLeft',
+										39 : 'onRight',
+										40 : 'onDown'
+								};
+								var action = dict[e.keyCode];
+								self.cModel[action] && self.cModel[action]();
+							}, 0);
 						};
                         
                         EventManager.on('model.stop', function () {
+							self.cModel = null;
 							setTimeout(function () {
 								self.run();
 							}, self.getOption('speed'));
@@ -216,6 +218,7 @@ Tetris.prototype = {
 }; 
     
 var Model = function (field) {
+		this.__timer = null;
 		this.rotationRight = function () {};
 		this.rotationLeft = function () {};
 		this.position = [];
@@ -233,18 +236,19 @@ var Model = function (field) {
 			}
 		};
 
-		this.isFreeSpace = function () {
-			for (var i = 0; i < this.position.length; i++) {
-				var cell = this.field.getCell(this.position[i].y, this.position[i].x);
+		this.isFreeSpace = function (position) {
+			position = position || this.position;
+			for (var i = 0; i < position.length; i++) {
+				var cell = this.field.getCell(	position[i].y, position[i].x);
 				if (!cell || (!cell.isFree() && cell.getModel() !== this)) {
 					break;
 				}
 			}
-			return i == this.position.length;
+			return i == position.length;
 		};
 		
 		this.flush = function () {
-			this.oldCells = this.newCells;
+			this.oldCells = this.newCells.slice(0);
 			if (this.isFreeSpace()) {
 				this.newCells = [];
 				for (var i = 0; i < this.position.length; i++) {
@@ -254,7 +258,7 @@ var Model = function (field) {
 				}
 				this.draw();
 				var self = this;
-				setTimeout(function () {
+				this.__timer = setTimeout(function () {
 					self.flush();
 				}, this.field.getOption('speed'));
 			} else {
@@ -263,29 +267,37 @@ var Model = function (field) {
 				} else {
 					EventManager.fire('model.stop');
 				}
-
 			}
 		};
-		
+
 		this.go = function () {
 			this.flush();
 			return this;
 		};
 		
 		this.onLeft = function () {
-			console.log('left');
+			var position = [];
+			for (var i in this.position) {
+				position.push( { 'x' : this.position[i].x - 1, 'y' : this.position[i].y	} );
+			}
+			if (this.isFreeSpace(position)) {
+				this.position = position; // TODO check dangerous place
+			}
 		};
 		
 		this.onRight = function () {
-			console.log('right');
+			var position = [];
+			for (var i in this.position) {
+				position.push( { 'x' : this.position[i].x + 1, 'y' : this.position[i].y	} );
+			}
+			if (this.isFreeSpace(position)) {
+				this.position = position; // TODO check dangerous place
+			}
 		};
 		
 		this.onDown = function () {
-			console.log('down');
-		};
-		
-		this.onUp = function () {
-			console.log('up');
+			this.__timer && clearTimeout(this.__timer);
+			this.flush();
 		};
 };
     
