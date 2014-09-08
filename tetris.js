@@ -121,8 +121,7 @@ Tetris.prototype = {
 										'GRight'  : GRight,
 										'ZedLeft' : ZedLeft, 
 										'ZedRigh' : ZedRight, 
-										'TetDown' : TetDown//, 
-										//~ 'TetUp'   : TetUp
+										'TetDown' : TetDown
 									  };
 									  
 						return this;
@@ -140,7 +139,6 @@ Tetris.prototype = {
 								  'GLeft', 
 								  'GRight',
 								  'TetDown', 
-//'TetUp', 
 								  'ZedLeft', 
 								  'ZedRigh'
 								  ];
@@ -152,8 +150,7 @@ Tetris.prototype = {
 					idx = Math.floor(Math.random()*(len-1));
 					var md2 = models[idx];
 					idx = Math.round(Math.random()) + 1;
-					//~ return new this.models[ eval('md'+idx) ] (this);
-					return new this.models[ 'TetDown' ] (this);
+					return new this.models[ eval('md'+idx) ] (this);
 				},
                 
                 addListeners : function () {
@@ -234,10 +231,7 @@ Tetris.prototype = {
     
 var Model = function (field) {
 		this.__timer = null;
-		//~ this.rotationRight = function () {};
-		//~ this.rotationLeft = function () {};
 		this.position = [];
-		//~ this.firstStep = true;
 		this.oldCells = [];
 		if (!field) {
 			throw new Error('Argument field is empty');
@@ -424,42 +418,31 @@ var TetDown = function () {
 			var rotateStatus = this.rotateStatus;
 			switch (rotateStatus) {
 				case 0 : 
-					//~ position[2].y--; position[2].x--;
 					position[0].x++; position[0].y--;
 					position[2].x--; position[2].y++;
 					position[3].x--; position[3].y--;
 					rotateStatus = 1;
 					break;
 				case 1 :					
-					//~ position[3].x++; position[3].y--;
 					position[0].x++; position[0].y++;
 					position[2].x--; position[2].y--;
 					position[3].x++; position[3].y--;
 					rotateStatus = 2;
 					break;
 				case 2 :		
-					//~ position[0].x++; position[0].y++;
 					position[0].x--; position[0].y++;
 					position[2].x++; position[2].y--;
 					position[3].x++; position[3].y++;
 					rotateStatus = 3;
-					console.log(this.position);
-					clearTimeout(this.__timer);
 					break;
 				case 3 :
-					//~ position[2].x--; position[2].y++;
 					position[0].x--; position[0].y--;
 					position[2].x++; position[2].y++;
 					position[3].x--; position[3].y++;
-					console.log(this.position);
-					clearTimeout(this.__timer);
 					rotateStatus = 0;
 					break;
 			}
 			if (this.isFreeSpace(position)) {
-				//~ if (!rotateStatus) {
-					//~ position.sort(this.compare);
-				//~ }
 				this.rotateStatus = rotateStatus;
 				this.position = position;
 				this.draw();
@@ -589,10 +572,3 @@ var EventManager = {
 			return this;
 		}
     };
-
-//~ var TetUp = function () {
-		//~ TetUp.prototype.superclass.apply(this, arguments);
-		//~ this.color = '#af48da';
-		//~ this.position = [{x:7,y:2}, {x:9,y:2}, {x:8,y:2}, {x:8,y:1}];
-	//~ };
-//~ TetUp.prototype.superclass = Model;
