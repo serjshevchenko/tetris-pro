@@ -121,8 +121,8 @@ Tetris.prototype = {
 										'GRight'  : GRight,
 										'ZedLeft' : ZedLeft, 
 										'ZedRigh' : ZedRight, 
-										'TetDown' : TetDown, 
-										'TetUp'   : TetUp
+										'TetDown' : TetDown//, 
+										//~ 'TetUp'   : TetUp
 									  };
 									  
 						return this;
@@ -135,8 +135,15 @@ Tetris.prototype = {
 				},
                 
                 getRandModel : function () {
-					var models = ['Stick', 'Square', 'GLeft', 'GRight',
-									'TetDown', 'TetUp', 'ZedLeft', 'ZedRigh'];
+					var models = ['Stick', 
+								  'Square', 
+								  'GLeft', 
+								  'GRight',
+								  'TetDown', 
+//'TetUp', 
+								  'ZedLeft', 
+								  'ZedRigh'
+								  ];
 					var len = models.length;
 					var idx = Math.floor(Math.random()*(len-1));
 					var md1 = models[idx];
@@ -145,7 +152,8 @@ Tetris.prototype = {
 					idx = Math.floor(Math.random()*(len-1));
 					var md2 = models[idx];
 					idx = Math.round(Math.random()) + 1;
-					return new this.models[ eval('md'+idx) ] (this);
+					//~ return new this.models[ eval('md'+idx) ] (this);
+					return new this.models[ 'TetDown' ] (this);
 				},
                 
                 addListeners : function () {
@@ -158,19 +166,24 @@ Tetris.prototype = {
 //~ 
                         //~ this.btnStop.onclick = function (event) {
                         //~ };
-                        document.onkeypress = function (e) {
+                        //~ document.onkeypress = function (e) {
 							//~ console.log(e.keyCode);
-							if (!self.cModel) return false; 
-							setTimeout(function () {
-								var dict = {
-										37 : 'onLeft',
-										39 : 'onRight',
-										40 : 'onDown'
-								};
-								var action = dict[e.keyCode];
-								self.cModel[action] && self.cModel[action]();
-							}, 0);
-						};
+							//~ 
+						//~ };
+						
+						self.bind(document, 'keypress', function (e) {
+								if (!self.cModel) return false; 
+								setTimeout(function () {
+									var dict = {
+											37 : 'onLeft',
+											39 : 'onRight',
+											40 : 'onDown',
+											38 : 'onRotate'
+									};
+									var action = dict[e.keyCode];
+									self.cModel[action] && self.cModel[action]();
+								}, 0);
+						});
                         
                         EventManager.on('model.stop', function () {
 							self.cModel = null;
@@ -187,7 +200,7 @@ Tetris.prototype = {
 						return this;
                 },
                 
-                bind : function (elem, event, handler) { // specify event arg with out prefix 'on'
+                bind : function (elem, event, handler) {
 					if (!event || event in elem || handler.constructor != Function) {
 						return;
 					}
@@ -221,13 +234,11 @@ Tetris.prototype = {
     
 var Model = function (field) {
 		this.__timer = null;
-		this.rotationRight = function () {};
-		this.rotationLeft = function () {};
+		//~ this.rotationRight = function () {};
+		//~ this.rotationLeft = function () {};
 		this.position = [];
-		this.prevPosition = [];
-		this.firstStep = true;
-		//~ this.oldCells = [];
-		//~ this.newCells = [];
+		//~ this.firstStep = true;
+		this.oldCells = [];
 		if (!field) {
 			throw new Error('Argument field is empty');
 		}
@@ -244,14 +255,20 @@ var Model = function (field) {
 		};
 		
 		this.draw = function () {
-			for (var i = 0; i < this.prevPosition.length; i++) {
-				var cell = this.field.getCell(	this.prevPosition[i].y, this.prevPosition[i].x);
-				cell.release().changeColor(this.field.options.color);
-			}
+			var cells = [];
 			for (var i = 0; i < this.position.length; i++) {
 				var cell = this.field.getCell(	this.position[i].y, this.position[i].x);
 				cell.reserve(this).changeColor(this.color);
+				cells.push(cell);
+				var idx = this.oldCells.indexOf(cell);
+				if (idx > -1) {
+					this.oldCells.splice(idx, 1);
+				}
 			}
+			for (var i in this.oldCells) {
+				this.oldCells[i].release().changeColor(this.field.options.color);
+			}
+			this.oldCells = cells;
 		};
 
 		this.isFreeSpace = function (position) {
@@ -265,42 +282,32 @@ var Model = function (field) {
 			return i == position.length;
 		};
 		
-		this.flush = function () {			
-			this.prevPosition = this.copyPosition();
-			this.position = this.copyPosition(0, 1);
+		this.flush = function () {
+			var atFirst = !this.oldCells.length;
+			this.position = atFirst ? this.position : this.copyPosition(0, 1);
 			if (this.isFreeSpace()) {
-				this.draw();				
+				this.draw();
 				var self = this;
 				this.__timer = setTimeout(function () {
-					//~ self.firstStep = false;
 					self.flush();
 				}, this.field.getOption('speed'));
 			} else {
-				//~ if (this.firstStep) {
-					//~ EventManager.fire('finish');
-				//~ } else {
+				if (atFirst) {
+					EventManager.fire('finish');
+				} else {
 					EventManager.fire('model.stop');
-				//~ }
+				}
 			}
 		};
 
 		this.go = function () {
-			if (this.isFreeSpace()) {
-				this.draw();
-				var self = this;
-				this.__timer = setTimeout(function () {					
-					self.flush();
-				}, this.field.getOption('speed'));
-			} else {
-				EventManager.fire('finish');
-			}
+			this.flush();
 			return this;
 		};
 		
 		this.onLeft = function () {
 			var position = this.copyPosition(-1);
 			if (this.isFreeSpace(position)) {
-				this.prevPosition = this.position;
 				this.position = position; // TODO check dangerous place
 				this.draw();
 			}
@@ -309,7 +316,6 @@ var Model = function (field) {
 		this.onRight = function () {
 			var position = this.copyPosition(1);
 			if (this.isFreeSpace(position)) {
-				this.prevPosition = this.position;
 				this.position = position; // TODO check dangerous place
 				this.draw();
 			}
@@ -319,13 +325,46 @@ var Model = function (field) {
 			this.__timer && clearTimeout(this.__timer);
 			this.flush();
 		};
+		
+		this.onRotate = function () {
+			console.log('rotate');
+		};
+		this.rotateStatus = 0;
+		this.compare  = function (a, b) {
+			var res = 0;
+			if ((a.y > b.y) || (a.y == b.y && a.x > b.x)) res = 1;
+			else if ((a.y < b.y) || (a.y == b.y && a.x < b.x)) res = -1;
+			return res;
+		};
 };
-    
-    
+
+
 var Stick = function () {
 		Stick.prototype.superclass.apply(this, arguments);
 		this.color = '#0f0';
-		this.position = [{x:8,y:4}, {x:8,y:3}, {x:8,y:2}, {x:8,y:1}];
+		this.position = [{x:8,y:1}, {x:8,y:2}, {x:8,y:3}, {x:8,y:4}];
+		this.onRotate = function () {
+			var pos = {x:this.position[1].x, y:this.position[1].y};
+			var position = this.copyPosition();
+			if (this.rotateStatus) {
+				for (var i in position) {
+					var diff = pos.x - this.position[i].x;
+					position[i].y += diff;
+					position[i].x = pos.x;
+				}
+			} else {
+				for (var i in position) {
+					var diff = pos.y - this.position[i].y;
+					position[i].x += diff;
+					position[i].y = pos.y;						
+				}
+			}
+			if (this.isFreeSpace(position)) {
+				this.rotateStatus ^= 1;
+				this.position = position;
+				this.draw();
+			}
+		};
 	};
 
 var Square = function () {
@@ -337,53 +376,188 @@ var Square = function () {
 var ZedLeft = function () {
 		ZedLeft.prototype.superclass.apply(this, arguments);
 		this.color = '#0003fe';
-		this.position = [{x:9,y:2}, {x:8,y:2}, {x:8,y:1}, {x:7,y:1}];
+		this.position = [{x:7,y:1}, {x:8,y:1}, {x:8,y:2}, {x:9,y:2}];
+		this.onRotate = function () {
+			var position = this.copyPosition();
+			if (this.rotateStatus) {
+				position[0].x-=2;
+				position[0].y-=2;
+			} else {
+				position[0].x+=2;
+				position[0].y+=2;
+			}
+			if (this.isFreeSpace(position)) {
+				this.rotateStatus ^= 1;
+				this.position = position;
+				this.draw();
+			}
+		};
 	};
    
 var ZedRight = function () {
 		ZedRight.prototype.superclass.apply(this, arguments);
 		this.color = '#01a3ff';
-		this.position = [{x:7,y:2}, {x:8,y:2}, {x:8,y:1}, {x:9,y:1}];
-	};
-	
-var TetUp = function () {
-		TetUp.prototype.superclass.apply(this, arguments);
-		this.color = '#af48da';
-		this.position = [{x:7,y:2}, {x:9,y:2}, {x:8,y:2}, {x:8,y:1}];
+		this.position = [{x:8,y:1}, {x:9,y:1}, {x:7,y:2}, {x:8,y:2}];
+		this.onRotate = function () {
+			var position = this.copyPosition();
+			if (this.rotateStatus) {
+				position[1].x+=2;
+				position[1].y-=2;
+			} else {
+				position[1].x-=2;
+				position[1].y+=2;
+			}
+			if (this.isFreeSpace(position)) {
+				this.rotateStatus ^= 1;
+				this.position = position;
+				this.draw();
+			}
+		};
 	};
 	
 var TetDown = function () {
 		TetDown.prototype.superclass.apply(this, arguments);
 		this.color = '#ef4e1f';
-		this.position = [{x:7,y:1}, {x:9,y:1}, {x:8,y:2}, {x:8,y:1}];
+		this.position = [{x:7,y:1}, {x:8,y:1}, {x:9,y:1}, {x:8,y:2}];
+		this.onRotate = function () {
+			var position = this.copyPosition();
+			var rotateStatus = this.rotateStatus;
+			switch (rotateStatus) {
+				case 0 : 
+					//~ position[2].y--; position[2].x--;
+					position[0].x++; position[0].y--;
+					position[2].x--; position[2].y++;
+					position[3].x--; position[3].y--;
+					rotateStatus = 1;
+					break;
+				case 1 :					
+					//~ position[3].x++; position[3].y--;
+					position[0].x++; position[0].y++;
+					position[2].x--; position[2].y--;
+					position[3].x++; position[3].y--;
+					rotateStatus = 2;
+					break;
+				case 2 :		
+					//~ position[0].x++; position[0].y++;
+					position[0].x--; position[0].y++;
+					position[2].x++; position[2].y--;
+					position[3].x++; position[3].y++;
+					rotateStatus = 3;
+					console.log(this.position);
+					clearTimeout(this.__timer);
+					break;
+				case 3 :
+					//~ position[2].x--; position[2].y++;
+					position[0].x--; position[0].y--;
+					position[2].x++; position[2].y++;
+					position[3].x--; position[3].y++;
+					console.log(this.position);
+					clearTimeout(this.__timer);
+					rotateStatus = 0;
+					break;
+			}
+			if (this.isFreeSpace(position)) {
+				//~ if (!rotateStatus) {
+					//~ position.sort(this.compare);
+				//~ }
+				this.rotateStatus = rotateStatus;
+				this.position = position;
+				this.draw();
+			}
+		};
 	};
 	
 var GRight = function () {
 		GRight.prototype.superclass.apply(this, arguments);
 		this.color = '#aadd1f';
-		this.position = [{x:9,y:3}, {x:8,y:3}, {x:8,y:2}, {x:8,y:1}];
+		this.position = [{x:8,y:1}, {x:8,y:2}, {x:8,y:3}, {x:9,y:3}];
+		this.onRotate = function () {
+			var position = this.copyPosition();
+			var rotateStatus = this.rotateStatus;
+			switch (rotateStatus) {
+				case 0 :
+					position[0].x++; position[0].y++;
+					position[2].x--; position[2].y--;
+					position[3].x-=2;
+					rotateStatus = 1;
+					break;
+				case 1 :
+					position[0].x--; position[0].y++;
+					position[2].x++; position[2].y--;
+					position[3].y-=2;
+					rotateStatus = 2;
+					break;
+				case 2 :
+					position[0].x--; position[0].y--;
+					position[2].x++; position[2].y++;
+					position[3].x+=2;
+					rotateStatus = 3;
+					break;
+				case 3 :
+					position[0].x++; position[0].y--;
+					position[2].x--; position[2].y++;
+					position[3].y+=2;
+					rotateStatus = 0;
+					break;
+			}
+			if (this.isFreeSpace(position)) {
+				this.rotateStatus = rotateStatus;
+				this.position = position;
+				this.draw();
+			}			
+		};
 	};
 
 var GLeft = function () {
 		GLeft.prototype.superclass.apply(this, arguments);
 		this.color = '#521e98';
-		this.position = [{x:7,y:3}, {x:8,y:3}, {x:8,y:2}, {x:8,y:1}];
+		this.position = [{x:8,y:1}, {x:8,y:2}, {x:7,y:3}, {x:8,y:3}];
+		this.onRotate = function () {
+			var position = this.copyPosition();
+			var rotateStatus = this.rotateStatus;
+			switch (rotateStatus) {
+				case 0 :
+					position[0].x++; position[0].y++;
+					position[2].y-=2;
+					position[3].x--; position[3].y--;
+					rotateStatus = 1;
+					break;
+				case 1:
+					position[0].x--; position[0].y++;
+					position[2].x+=2;
+					position[3].x++; position[3].y--;
+					rotateStatus = 2;
+					break;
+				case 2 :
+					position[0].x--; position[0].y--;
+					position[2].y+=2;
+					position[3].x++; position[3].y++;
+					rotateStatus = 3;
+					break;
+				case 3 :
+					position[0].x++; position[0].y--;
+					position[2].x-=2;
+					position[3].x--; position[3].y++;
+					rotateStatus = 0;
+					break;
+			}
+			if (this.isFreeSpace(position)) {
+				this.rotateStatus = rotateStatus;
+				this.position = position;
+				this.draw();
+			}
+		};
 	};
-
 Stick.prototype.superclass = Model;
 Square.prototype.superclass = Model;
 GLeft.prototype.superclass = Model;
 GRight.prototype.superclass = Model;
 ZedLeft.prototype.superclass = Model;
 ZedRight.prototype.superclass = Model;
-TetUp.prototype.superclass = Model;
 TetDown.prototype.superclass = Model;
 
 var EventManager = {
 		events : {
-			//~ 'model.prestart' : [],
-			//~ 'model.start' : [],
-			//~ 'model.move' : [],
 			'finish' : [],
 			'model.stop' : []
 		},
@@ -414,4 +588,11 @@ var EventManager = {
 			}
 			return this;
 		}
-    };       
+    };
+
+//~ var TetUp = function () {
+		//~ TetUp.prototype.superclass.apply(this, arguments);
+		//~ this.color = '#af48da';
+		//~ this.position = [{x:7,y:2}, {x:9,y:2}, {x:8,y:2}, {x:8,y:1}];
+	//~ };
+//~ TetUp.prototype.superclass = Model;
