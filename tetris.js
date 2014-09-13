@@ -33,6 +33,8 @@ var Tetris = function (options) {
     };    
     
 Tetris.prototype = {
+				score : 0,
+	
                 numVer : 20,
                 numHor : 15,
                 
@@ -60,25 +62,24 @@ Tetris.prototype = {
                         for (var i = 0; i < this.numVer; i++) {
                                 var row = document.createElement('DIV');
                                 row.__reservedCells = 0;
-                                row.className = 'row r-' + (i+1);
+                                row.className = 'row';
+                                row.id = 'row-' + (i+1);
                                 for (var j = 0; j < this.numHor; j++) {
                                         // TODO init cell method, if needed
                                         var cell = document.createElement('DIV');
-                                        cell.className = 'cell c-'+(j+1);
-                                        cell.__busy = false;
+                                        cell.className = 'cell';
+                                        cell.id = 'cell-'+(i+1)+'-'+(j+1);
 										cell.__model = null;
 										cell.isFree = function () {											
-											return !this.__busy;
+											return this.__model ? false : true;
 										};
 										cell.reserve = function (model) {
-											this.__busy = true;
 											this.__model = model;
 											this.style.backgroundColor = model.color;
 											this.parentNode.__reservedCells++;
 											return this;
 										};
 										cell.release = function () {
-											this.__busy = false;
 											this.__model = null;
 											this.style.backgroundColor = self.options.color;
 											this.parentNode.__reservedCells--;
@@ -169,7 +170,7 @@ Tetris.prototype = {
 							//~ 
 						//~ };
 						
-						self.bind(document, 'keypress', function (e) {
+						self.bind(document, 'keydown', function (e) { // TODO check why chrome don't well work with keypress event
 								if (!self.cModel) return false; 
 								setTimeout(function () {
 									var dict = {
@@ -183,46 +184,40 @@ Tetris.prototype = {
 								}, 0);
 						});
                         
-                        EventManager.on('model.stop', function (cells) {							
+                        EventManager.on('model.stop', function () {
+							//TODO chech IE specifics
+							var cells = self.cModel.oldCells;
 							self.cModel = null;
-							var f=0;
-							(function () {
-								var rows = [];
-								var maxIdx = -1;
-								for (var i in cells) {
-									if (cells[i].parentNode.__reservedCells == self.numHor) {
-										var row = cells[i].parentNode;
-										maxIdx = Math.max(maxIdx, [].indexOf.call(row.parentNode.children, row));  // check for IE
-										rows.push(row);									
-										var __cells = row.children; // check for IE
-										console.log(row.children);
-										for (var j in __cells) {
-											__cells[j].release();
-											f =1;
+							var rows = [];
+							var maxIdx = -1;
+							for (var i in cells) {
+								if (cells[i].parentNode.__reservedCells == self.numHor) { // TODO in another way
+									var row = cells[i].parentNode;
+									maxIdx = Math.max(maxIdx, [].indexOf.call(row.parentNode.children, row));  // check for IE
+									rows.push(row);									
+									for (var j = 0; j < row.children.length; j++) {
+										row.children[j].release();
+									}
+								}
+							}
+							if (maxIdx > -1) {
+								var table = rows[0].parentNode;
+								for (var i = maxIdx - rows.length; i >= 0; maxIdx--, i--) {
+									var row = table.children[maxIdx]; //IE
+									var newRow = table.children[i]; //IE
+									if (newRow.__reservedCells == 0) {
+										break;
+									}
+									for (var j = 0; j < newRow.children.length; j++) { //IE
+										var model = newRow.children[j].getModel();
+										if (model) {
+											row.children[j].reserve(model); //IE
+											newRow.children[j].release(); //IE
 										}
 									}
 								}
-								if (maxIdx > -1) {
-									var table = row.parentNode;
-									for (var i = maxIdx - rows.length; i >= 0; i--) {
-										row = table.children[maxIdx];
-										if (table.children[i].__reservedCells > 0) {
-											var s1 = table.children[i].className;
-											table.children[i].className = row.className;
-											row.className = s1;
-											var t = table.children[i].nextSibling;
-											table.replaceWith(table.children[i], row);
-											table.insertBefore(row, t);
-											maxIdx--;
-										}
-									}
-									//~ var maxIdx = 0;
-									//~ for (var i = 0; i < rows.length; i++) {
-										//~ maxIdx = rows[i].children.	 // check for IE
-									//~ }
-								}
-							})();
-							if (f) return;
+								self.score += self.numHor;
+							}
 							setTimeout(function () {
 								self.run();
 							}, self.getOption('speed'));
@@ -230,7 +225,7 @@ Tetris.prototype = {
 						
 						EventManager.on('finish', function () {
 							self.cModel = null;
-							alert('Game over!');
+							alert('Your score is '+self.score+' points.\nGame over!');
 						});
 						
 						return this;
@@ -253,14 +248,7 @@ Tetris.prototype = {
 					if (row == undefined || cell == undefined) {
 						throw new Error('Arguments error');
 					}
-					var row = this.field.getElementsByClassName('r-'+row)[0];
-					if (row) {
-						var cell = row.getElementsByClassName('c-'+cell)[0];
-						if (cell) {
-							return cell;
-						}
-					}
-					return null;
+					return document.getElementById('cell-'+row+'-'+cell) || null;
 				},
 				
 				getOption : function (key) {
@@ -286,20 +274,16 @@ var Model = function (field) {
 			}
 			return clone;
 		};
-		
+
 		this.draw = function () {
 			var cells = [];
+			for (var i in this.oldCells) {
+				this.oldCells[i].release();
+			}
 			for (var i = 0; i < this.position.length; i++) {
 				var cell = this.field.getCell(	this.position[i].y, this.position[i].x);
 				cell.reserve(this);
 				cells.push(cell);
-				var idx = this.oldCells.indexOf(cell);
-				if (idx > -1) {
-					this.oldCells.splice(idx, 1);
-				}
-			}
-			for (var i in this.oldCells) {
-				this.oldCells[i].release();
 			}
 			this.oldCells = cells;
 		};
