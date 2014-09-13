@@ -6,8 +6,7 @@
  **/
 
 
-;
-"use strict";
+;"use strict";
 
 
 var defOptions = {
@@ -50,6 +49,7 @@ Tetris.prototype = {
                 btnReset  : null,
                 
                 prepareLayout : function () {
+						var self = this;
                         this.wrapper = document.createElement('DIV');
                         this.wrapper.className = 'tetris-pro';
                         this.field = document.createElement('DIV');
@@ -59,6 +59,7 @@ Tetris.prototype = {
                         
                         for (var i = 0; i < this.numVer; i++) {
                                 var row = document.createElement('DIV');
+                                row.__reservedCells = 0;
                                 row.className = 'row r-' + (i+1);
                                 for (var j = 0; j < this.numHor; j++) {
                                         // TODO init cell method, if needed
@@ -72,19 +73,19 @@ Tetris.prototype = {
 										cell.reserve = function (model) {
 											this.__busy = true;
 											this.__model = model;
+											this.style.backgroundColor = model.color;
+											this.parentNode.__reservedCells++;
 											return this;
 										};
 										cell.release = function () {
 											this.__busy = false;
 											this.__model = null;
-											return this;			
+											this.style.backgroundColor = self.options.color;
+											this.parentNode.__reservedCells--;
+											return this;
 										};
 										cell.getModel = function () {
 												return this.__model;
-										};
-										cell.changeColor = function (color) {
-											this.style.backgroundColor = color;
-											return this;
 										};
                                         row.appendChild(cell);
                                 }
@@ -182,8 +183,46 @@ Tetris.prototype = {
 								}, 0);
 						});
                         
-                        EventManager.on('model.stop', function () {
+                        EventManager.on('model.stop', function (cells) {							
 							self.cModel = null;
+							var f=0;
+							(function () {
+								var rows = [];
+								var maxIdx = -1;
+								for (var i in cells) {
+									if (cells[i].parentNode.__reservedCells == self.numHor) {
+										var row = cells[i].parentNode;
+										maxIdx = Math.max(maxIdx, [].indexOf.call(row.parentNode.children, row));  // check for IE
+										rows.push(row);									
+										var __cells = row.children; // check for IE
+										console.log(row.children);
+										for (var j in __cells) {
+											__cells[j].release();
+											f =1;
+										}
+									}
+								}
+								if (maxIdx > -1) {
+									var table = row.parentNode;
+									for (var i = maxIdx - rows.length; i >= 0; i--) {
+										row = table.children[maxIdx];
+										if (table.children[i].__reservedCells > 0) {
+											var s1 = table.children[i].className;
+											table.children[i].className = row.className;
+											row.className = s1;
+											var t = table.children[i].nextSibling;
+											table.replaceWith(table.children[i], row);
+											table.insertBefore(row, t);
+											maxIdx--;
+										}
+									}
+									//~ var maxIdx = 0;
+									//~ for (var i = 0; i < rows.length; i++) {
+										//~ maxIdx = rows[i].children.	 // check for IE
+									//~ }
+								}
+							})();
+							if (f) return;
 							setTimeout(function () {
 								self.run();
 							}, self.getOption('speed'));
@@ -252,7 +291,7 @@ var Model = function (field) {
 			var cells = [];
 			for (var i = 0; i < this.position.length; i++) {
 				var cell = this.field.getCell(	this.position[i].y, this.position[i].x);
-				cell.reserve(this).changeColor(this.color);
+				cell.reserve(this);
 				cells.push(cell);
 				var idx = this.oldCells.indexOf(cell);
 				if (idx > -1) {
@@ -260,7 +299,7 @@ var Model = function (field) {
 				}
 			}
 			for (var i in this.oldCells) {
-				this.oldCells[i].release().changeColor(this.field.options.color);
+				this.oldCells[i].release();
 			}
 			this.oldCells = cells;
 		};
@@ -289,7 +328,7 @@ var Model = function (field) {
 				if (atFirst) {
 					EventManager.fire('finish');
 				} else {
-					EventManager.fire('model.stop');
+					EventManager.fire('model.stop', this.oldCells);
 				}
 			}
 		};
