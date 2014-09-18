@@ -6,12 +6,17 @@
  **/
 
 
+/* TODO
+ * setTimeout with will increase yours score every 5 min
+ * sort postion befor first move
+ * */
+
 ;"use strict";
 
 
 var defOptions = {
-		speed : 200, 		//in msec
-		color : '#fff' 		// free cell
+		speed : 400, 		//in msec
+		color : '#999' 		// free cell
 	};
 
 
@@ -58,16 +63,25 @@ Tetris.prototype = {
                         this.field.className = 'field';
                         this.panel = document.createElement('DIV');
                         this.panel.className = 'panel';
+						this.scoreBox = document.createElement('DIV');
+                        this.scoreBox.className = 'score-box';
+                        var temp = document.createElement('SPAN');
+                        temp.className = 'lable'; temp.innerHTML = 'Your score:&nbsp;';
+                        this.scoreValue = document.createElement('SPAN');
+                        this.scoreValue.id = 'score'; this.scoreValue.innerHTML = '0';
+                        this.scoreBox.appendChild(temp).appendChild(this.scoreValue);
+                        this.preview = document.createElement('DIV');
+                        this.preview.className = 'preview';
                         
                         for (var i = 0; i < this.numVer; i++) {
                                 var row = document.createElement('DIV');
                                 row.__reservedCells = 0;
-                                row.className = 'row';
+                                row.className = 'row r-'+(i+1);
                                 row.id = 'row-' + (i+1);
                                 for (var j = 0; j < this.numHor; j++) {
                                         // TODO init cell method, if needed
                                         var cell = document.createElement('DIV');
-                                        cell.className = 'cell';
+                                        cell.className = 'cell c-' + (j+1);
                                         cell.id = 'cell-'+(i+1)+'-'+(j+1);
 										cell.__model = null;
 										cell.isFree = function () {											
@@ -93,7 +107,7 @@ Tetris.prototype = {
                                 this.field.appendChild(row);
                         }                        
                         this.wrapper.appendChild(this.field);
-                        
+
                         this.btnStart = document.createElement('A')
                         this.btnStart.className = 'btn start';
                         this.btnStart.innerHTML= 'Start';
@@ -108,12 +122,20 @@ Tetris.prototype = {
                         this.panel.appendChild(this.btnStart);
                         this.panel.appendChild(this.btnPause);
                         this.panel.appendChild(this.btnReset);
+                        this.panel.appendChild(this.scoreBox);
+                        this.panel.appendChild(this.preview);
                         this.wrapper.appendChild(this.panel);
                         
                         this.options.element.appendChild(this.wrapper);
-
+						
 						return this;
                 },
+                
+				clearLayout : function () {
+					clearNode(this.wrapper);
+					this.wrapper.parentNode.removeChild(this.wrapper)
+					this.prepareLayout().initModels().addListeners();
+				},
                 
                 initModels : function () {
 						this.models = {
@@ -130,8 +152,10 @@ Tetris.prototype = {
 				},
 				
 				run : function () {
-					this.cModel = this.getRandModel();
+					this.cModel = this.nModel || this.getRandModel();
+					this.nModel = this.getRandModel();
 					this.cModel.go();
+					this.nModel.showPreview();
 					return this;
 				},
                 
@@ -159,9 +183,26 @@ Tetris.prototype = {
                         var self = this;
                         //~ this.btnStart.onclick = function (event) {
                         //~ };
-                        //~ 
-                        //~ this.btnPause.onclick = function (event) {
-                        //~ };
+                        //~
+                        self.bind(this.btnPause, 'click', function (e) {
+							if (!self.cModel) return false; 
+							if (this.innerHTML == 'Resume') {
+								self.cModel.resume();
+								this.innerHTML = 'Pause';
+							} else {
+								self.cModel.pause();
+								this.innerHTML = 'Resume';
+							}
+                        });
+                        
+                        self.bind(this.btnReset, 'click', function (e) {
+							if (self.cModel) {
+								self.cModel.pause();
+								self.cModel = self.nModel = null;
+							}
+							self.clearLayout();
+							self.run();
+                        });
 //~ 
                         //~ this.btnStop.onclick = function (event) {
                         //~ };
@@ -217,6 +258,7 @@ Tetris.prototype = {
 									}
 								}
 								self.score += self.numHor;
+								self.scoreValue.innerHTML = self.score; 
 							}
 							setTimeout(function () {
 								self.run();
@@ -224,15 +266,15 @@ Tetris.prototype = {
 						});
 						
 						EventManager.on('finish', function () {
-							self.cModel = null;
-							alert('Your score is '+self.score+' points.\nGame over!');
+							self.cModel = self.nModel = null;
+							alert('Game over!');
 						});
 						
 						return this;
                 },
                 
                 bind : function (elem, event, handler) {
-					if (!event || event in elem || handler.constructor != Function) {
+					if (!event || !elem || handler.constructor != Function) {
 						return;
 					}
 					if (elem.addEventListener) {
@@ -322,6 +364,16 @@ var Model = function (field) {
 			return this;
 		};
 		
+		this.pause = function () {
+			this.__timer && clearTimeout(this.__timer);
+			return this;
+		};
+		
+		this.resume = function () {
+			this.flush();
+			return this;
+		};
+		
 		this.onLeft = function () {
 			var position = this.copyPosition(-1);
 			if (this.isFreeSpace(position)) {
@@ -352,6 +404,29 @@ var Model = function (field) {
 			if ((a.y > b.y) || (a.y == b.y && a.x > b.x)) res = 1;
 			else if ((a.y < b.y) || (a.y == b.y && a.x < b.x)) res = -1;
 			return res;
+		};
+		this.showPreview = function () {
+				var position = this.copyPosition(-7, -1); // TODO delete dependent from [this.position] 
+				var wrapper = document.createElement('DIV');
+				wrapper.style.position = 'absolute';
+				wrapper.style.top = '25px';
+				wrapper.style.left = '50%';
+				var width = 0;
+				var size = 35;
+				var colors = ['#333', '#555', '#777', '#999'];
+				for (var i = 0; i < position.length; i++) {
+					var x = position[i].x, y = position[i].y;
+					var elem = document.createElement('SPAN');
+					elem.style.position = 'absolute';
+					elem.style.backgroundColor = colors[i];
+					elem.style.height = elem.style.width = size + 'px';
+					elem.style.top = y * size + 'px'; elem.style.left = x * size + 'px';
+					width = Math.max(x*size, width);
+					wrapper.appendChild(elem);
+				}
+				wrapper.style.marginLeft = -1 * width / 2 - size + 'px';
+				this.field.preview.innerHTML = '';
+				this.field.preview.appendChild(wrapper);
 		};
 };
 
@@ -595,3 +670,10 @@ var EventManager = {
 			return this;
 		}
     };
+    
+var clearNode = function (node) {
+	if (!node) return;
+	while (node.firstChild) {
+		node.removeChild(node.firstChild);
+	}
+};
